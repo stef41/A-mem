@@ -176,8 +176,12 @@ def aggregate_metrics(all_metrics: List[Dict[str, float]], all_categories: List[
     # Collect all values for each metric, both overall and per category
     for metrics, category in zip(all_metrics, all_categories):
         for metric_name, value in metrics.items():
-            aggregates[metric_name].append(value)
-            category_aggregates[category][metric_name].append(value)
+            # Skip non-numeric values (like judge_label which is a string)
+            if isinstance(value, (int, float)):
+                aggregates[metric_name].append(value)
+                category_aggregates[category][metric_name].append(value)
+            else:
+                print(f"Warning: Non-numeric value for metric '{metric_name}': {value}")
     
     # Calculate statistics for overall metrics
     results = {
@@ -185,15 +189,17 @@ def aggregate_metrics(all_metrics: List[Dict[str, float]], all_categories: List[
     }
     
     for metric_name, values in aggregates.items():
-        results["overall"][metric_name] = {
-            'mean': statistics.mean(values),
-            'std': statistics.stdev(values) if len(values) > 1 else 0.0,
-            'median': statistics.median(values),
-            'min': min(values),
-            'max': max(values),
-            'count': len(values)
-        }
-    
+        if values:  # Only calculate if we have numeric values
+            results["overall"][metric_name] = {
+                'mean': statistics.mean(values),
+                'std': statistics.stdev(values) if len(values) > 1 else 0.0,
+                'median': statistics.median(values),
+                'min': min(values),
+                'max': max(values),
+                'count': len(values)
+            }
+        else:
+            print(f"Warning: No numeric values found for metric '{metric_name}'")
     # Calculate statistics for each category
     for category in sorted(category_aggregates.keys()):
         results[f"category_{category}"] = {}

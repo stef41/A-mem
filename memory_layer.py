@@ -49,7 +49,7 @@ class OpenAIController(BaseLLMController):
             ],
             response_format=response_format,
             temperature=temperature,
-            max_tokens=1000
+            max_tokens=2000
         )
         return response.choices[0].message.content
 
@@ -135,42 +135,53 @@ class SGLangController(BaseLLMController):
         return result
 
     def get_completion(self, prompt: str, response_format: dict, temperature: float = 0.7) -> str:
-        try:
-            # Extract JSON schema from response_format and convert to string format
-            json_schema = response_format.get("json_schema", {}).get("schema", {})
-            json_schema_str = json.dumps(json_schema)
-            
-            # Prepare SGLang request with correct format
-            payload = {
-                "text": prompt,
-                "sampling_params": {
+        max_retries = None  # Infinite retries
+        retry_delay = 5  # seconds
+        attempt = 0
+        
+        while True:
+            attempt += 1
+            try:
+                # Try vLLM OpenAI-compatible endpoint first (works for both vLLM and SGLang)
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": "You must respond with a JSON object."},
+                        {"role": "user", "content": prompt}
+                    ],
                     "temperature": temperature,
-                    "max_new_tokens": 1000,
-                    "json_schema": json_schema_str  # SGLang expects JSON schema as string
+                    "max_tokens": 1000,
+                    "response_format": response_format
                 }
-            }
-            
-            # Make request to SGLang server
-            response = requests.post(
-                f"{self.base_url}/generate",
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                # SGLang returns the generated text in 'text' field
-                generated_text = result.get("text", "")
-                return generated_text
-            else:
-                print(f"SGLang server returned status {response.status_code}: {response.text}")
-                raise Exception(f"SGLang server error: {response.status_code}")
                 
-        except Exception as e:
-            print(f"SGLang completion error: {e}")
-            empty_response = self._generate_empty_response(response_format)
-            return json.dumps(empty_response)
+                # Make request to vLLM/SGLang server using OpenAI-compatible API
+                response = requests.post(
+                    f"{self.base_url}/v1/chat/completions",
+                    headers={"Content-Type": "application/json"},
+                    json=payload,
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    # Extract generated text from OpenAI-compatible response
+                    generated_text = result["choices"][0]["message"]["content"]
+                    return generated_text
+                else:
+                    if attempt == 1:  # Only print on first attempt to avoid spam
+                        print(f"vLLM/SGLang server returned status {response.status_code}: {response.text}")
+                    if attempt % 10 == 0:  # Print every 10th attempt
+                        print(f"Still retrying (attempt {attempt})...")
+                    time.sleep(retry_delay)
+                    continue
+                    
+            except Exception as e:
+                if attempt == 1:
+                    print(f"vLLM/SGLang completion error: {e}")
+                if attempt % 10 == 0:
+                    print(f"Still retrying (attempt {attempt})...")
+                time.sleep(retry_delay)
+                continue
 
 class LiteLLMController(BaseLLMController):
     """LiteLLM controller for universal LLM access including Ollama and SGLang"""
@@ -409,7 +420,8 @@ class HybridRetriever:
             model_name: Name of the SentenceTransformer model to use
             alpha: Weight for combining BM25 and semantic scores (0 = only BM25, 1 = only semantic)
         """
-        self.model = SentenceTransformer(model_name)
+        # Use GPU 0 for embedding model
+        self.model = SentenceTransformer(model_name, device='cuda:0')
         self.alpha = alpha
         self.bm25 = None
         self.corpus = []
@@ -559,7 +571,8 @@ class SimpleEmbeddingRetriever:
         Args:
             model_name: Name of the SentenceTransformer model to use
         """
-        self.model = SentenceTransformer(model_name)
+        # Use GPU 0 for embedding model
+        self.model = SentenceTransformer(model_name, device='cuda:0')
         self.corpus = []
         self.embeddings = None
         self.document_ids = {}  # Map document content to its index
