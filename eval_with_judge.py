@@ -304,14 +304,24 @@ def print_metrics_table(category_results: Dict):
     print("LOCOMO EVALUATION RESULTS")
     print("="*120)
     
+
     # Category mapping
+    # https://memmachine.ai/blog/2025/09/memmachine-reaches-new-heights-on-locomo/
+
     category_names = {
-        1: "Single-Hop",
-        2: "Temporal",
-        3: "Multi-Hop",
-        4: "Open Domain",
-        5: "Adversarial"
-    }
+    1: "Multi-Hop",
+    2: "Temporal",
+    3: "Open Domain", 
+    4: "Single-Hop",
+    5: "Adversarial",
+}
+    # category_names = {
+    #     1: "Single-Hop",
+    #     2: "Temporal",
+    #     3: "Multi-Hop",
+    #     4: "Open Domain",
+    #     5: "Adversarial"
+    # }
     
     # Print header
     print(f"\n{'Method':<15}", end="")
