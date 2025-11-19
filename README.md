@@ -2,6 +2,43 @@
 
 A novel agentic memory system for LLM agents that can dynamically organize memories in an agentic way.
 
+## Quick Start: Running the Complete Evaluation
+
+**One-Command Launch:** Run the complete setup with a single script that clears GPUs, launches all models, and runs evaluation:
+```bash
+./launch_and_eval.sh
+```
+
+This script will:
+1. **Clear all GPU processes** to ensure clean state
+2. **Launch Qwen2.5-7B-Instruct** (agent model) on GPU 1-2 at port 8000
+3. **Launch GPT-OSS-120B** (judge model) on GPU 4,5,6,7 at port 8001  
+4. **Run evaluation** with Qwen3-Embedding-0.6B (embedding model loaded on GPU 0)
+5. **Clean up** GPU processes after completion
+
+**Manual Server Launch (if needed):**
+- Qwen agent model: `CUDA_VISIBLE_DEVICES=1,2 python -m sglang.launch_server --model-path Qwen/Qwen2.5-7B-Instruct --port 8000 --tp 2`
+- GPT-OSS-120B judge: `CUDA_VISIBLE_DEVICES=4,5,6,7 python -m sglang.launch_server --model-path openai/gpt-oss-120b --port 8001 --tp 4`
+- Embedding model is loaded automatically by the eval script on GPU 0
+
+**Evaluation Command:**
+```bash
+python -u eval_with_judge.py \
+    --agent_model "Qwen/Qwen2.5-7B-Instruct" \
+    --judge_model "openai/gpt-oss-120b" \
+    --embedding_model "Qwen/Qwen3-Embedding-0.6B" \
+    --dataset "data/locomo10.json" \
+    --backend "sglang" \
+    --sglang_host "http://localhost" \
+    --sglang_port 8000 \
+    --judge_port 8001 \
+    --retrieve_k 10 \
+    --temperature_c5 0.5 \
+    --ratio 1.0
+```
+
+---
+
 > **Note:** This repository is specifically designed to reproduce the results presented in our paper. If you want to use the A-MEM system in building your agents, please refer to our official implementation at: [A-mem-sys](https://github.com/WujiangXu/A-mem-sys)
 
 For more details, please refer to our paper: [A-MEM: Agentic Memory for LLM Agents](https://arxiv.org/pdf/2502.12110)
@@ -51,6 +88,35 @@ Empirical experiments conducted on six foundation models demonstrate superior pe
 
 ## Getting Started 🚀
 
+### Option 1: Using the existing Python environment (Recommended for this setup)
+
+If you already have the required dependencies installed:
+
+```bash
+# Just run the complete evaluation
+./launch_and_eval.sh
+```
+
+### Option 2: Using Pipenv
+
+1. Install Pipenv:
+```bash
+pip install --user pipenv
+```
+
+2. Install dependencies:
+```bash
+pipenv install
+```
+
+3. Run the complete evaluation:
+```bash
+pipenv shell
+./launch_and_eval.sh
+```
+
+### Option 3: Using venv or Conda (Original method)
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/WujiangXu/AgenticMemory.git
@@ -58,7 +124,8 @@ cd AgenticMemory
 ```
 
 2. Install dependencies:
-Option 1: Using venv (Python virtual environment)
+
+**Using venv (Python virtual environment)**
 ```bash
 # Create and activate virtual environment
 python -m venv a-mem
@@ -69,7 +136,7 @@ a-mem\Scripts\activate     # Windows
 pip install -r requirements.txt
 ```
 
-Option 2: Using Conda
+**Using Conda**
 ```bash
 # Create and activate conda environment
 conda create -n myenv python=3.9
@@ -80,7 +147,7 @@ pip install -r requirements.txt
 ```
 
 3. Run the experiments in LoCoMo dataset:
-```python
+```bash
 python test_advanced.py 
 ```
 
