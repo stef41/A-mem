@@ -31,12 +31,16 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 echo -e "${GREEN}=== A-MEM Evaluation Setup ===${NC}"
 echo "Timestamp: $TIMESTAMP"
 
-# Function to kill processes on GPU
+# Function to kill processes on GPU and ports
 kill_gpu_processes() {
-    echo -e "${YELLOW}Clearing GPU processes...${NC}"
+    echo -e "${YELLOW}Clearing GPU processes and port bindings...${NC}"
+    # Kill processes using the ports
+    lsof -ti:$QWEN_PORT | xargs -r kill -9 2>/dev/null || true
+    lsof -ti:$JUDGE_PORT | xargs -r kill -9 2>/dev/null || true
+    # Kill GPU processes
     nvidia-smi --query-compute-apps=pid --format=csv,noheader | xargs -r kill -9 2>/dev/null || true
     sleep 3
-    echo -e "${GREEN}GPU processes cleared${NC}"
+    echo -e "${GREEN}GPU processes and ports cleared${NC}"
 }
 
 # Function to check if server is ready
@@ -76,7 +80,7 @@ kill_gpu_processes
 
 # Step 2: Launch Qwen Model on GPU 1-2
 echo -e "${GREEN}=== Launching Qwen Model (Qwen2.5-7B-Instruct) on GPU 1-2 ===${NC}"
-CUDA_VISIBLE_DEVICES=1,2 python -m sglang.launch_server \
+CUDA_VISIBLE_DEVICES=1,2 pipenv run python -m sglang.launch_server \
     --model-path Qwen/Qwen2.5-7B-Instruct \
     --port $QWEN_PORT \
     --host 0.0.0.0 \
@@ -93,7 +97,7 @@ fi
 
 # Step 3: Launch GPT-OSS-120B on GPU 4-7
 echo -e "${GREEN}=== Launching GPT-OSS-120B (Judge Model) on GPU 4,5,6,7 ===${NC}"
-CUDA_VISIBLE_DEVICES=4,5,6,7 python -m sglang.launch_server \
+CUDA_VISIBLE_DEVICES=4,5,6,7 pipenv run python -m sglang.launch_server \
     --model-path openai/gpt-oss-120b \
     --port $JUDGE_PORT \
     --host 0.0.0.0 \
@@ -118,9 +122,9 @@ echo ""
 # Step 5: Run Evaluation
 echo -e "${GREEN}=== Starting Evaluation ===${NC}"
 
-# Run evaluation using the existing Python environment
+# Run evaluation using pipenv
 cd /data/users/zacharie/A-mem
-python -u eval_with_judge.py \
+pipenv run python -u eval_with_judge.py \
     --agent_model "Qwen/Qwen2.5-7B-Instruct" \
     --judge_model "openai/gpt-oss-120b" \
     --embedding_model "Qwen/Qwen3-Embedding-0.6B" \
