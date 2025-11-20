@@ -4,9 +4,11 @@ A novel agentic memory system for LLM agents that can dynamically organize memor
 
 ## Quick Start: Running the Complete Evaluation
 
+**Install Environment:** `pipenv install`
+
 **One-Command Launch:** Run the complete setup with a single script that clears GPUs, launches all models, and runs evaluation:
 ```bash
-./launch_and_eval.sh
+pipenv run ./launch_and_eval.sh
 ```
 
 This script will:
